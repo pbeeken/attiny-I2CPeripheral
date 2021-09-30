@@ -1,5 +1,5 @@
-# attiny-I2CSlave
-# I2C Slave explorations for RoboSapien
+# attiny-I2CPeripheral
+# I2C Peripheral explorations for RoboSapien
 
 Although this project has a specific purpose it can serve as a model for other I2C 
 implementations as this one will entertain many special details with timing.
