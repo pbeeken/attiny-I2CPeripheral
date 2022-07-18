@@ -22,6 +22,7 @@
 // The I2C address on the bus. This value needs to be unique w.r.t. other devices on the bus
 #define I2C_SLAVE_ADDRESS 0x14 // the 7-bit address (remember to change this when adapting this example)
 #include <TinyWireS.h>
+#include "LaserControl.h"
 
 // The default buffer size, Can't recall the scope of defines right now
 #ifndef TWI_RX_BUFFER_SIZE
@@ -41,6 +42,18 @@ void requestEvent();
 void receiveEvent(uint8_t howMany);
 
 /**
+ * completed states
+ **/
+enum {
+    IDLE, WROTE, READ,  // Operational states
+};
+
+// global scopes
+uint8_t State = IDLE;
+const uint8_t LASER_PIN = PB1; 
+LaserControl laser(LASER_PIN);
+
+/**
  * @brief This is the buffer that holds the incoming data.
  *        note the data type. Many issues that arose in past debugging
  *        were resolved by being strict with data types. 
@@ -51,25 +64,6 @@ volatile uint8_t i2c_regs[] = {'O', 'K',};
 void blink(uint8_t color, uint8_t blinks=2);
 const uint8_t RED = 0x34; // Using bidirectional LED for debugging
 const uint8_t GRN = 0x43; // Not required for final version.
-
-// STATE
-
-/**
- * completed states
- **/
-enum {
-    IDLE, WROTE, READ,  // Operational states
-    STEADY, BLINK, BREATH, // Action states.
-};
-
-volatile struct {
-    int state = IDLE;
-    uint8_t Brightness = 0;
-    uint8_t Blinker = STEADY; // Blink state
-    // these are internal variables to manage the variations
-    uint8_t currentBright;  // current limit in brightness for blinking and pulsing.
-    uint32_t nextChange; // time [in us] for next change.
-} State;
 
 /**
  * @brief The setup method.
@@ -82,9 +76,7 @@ void setup() {
     digitalWrite(3, LOW); // Note that this makes the led turn on, it's wire this way to allow for the voltage sensing above.
     digitalWrite(4, LOW); // Note that this makes the led turn on, it's wire this way to allow for the voltage sensing above.
 
-    // The core operation for this "slave"
-    pinMode(1, OUTPUT); // OC1A, also The only HW-PWM -pin supported by the tiny core analogWrite
-    analogWrite(1, State.Brightness);
+    laser.begin();
 
     /**
      * Reminder: taking care of pull-ups is the master's (controller's) job
@@ -111,38 +103,36 @@ void loop() {
      * It will call the function registered via TinyWireS.onReceive(); if there is data in the buffer on stop.
      */
     TinyWireS_stop_check();
-
     // Act on the current state.
 
     // We just responded to a data request.
-    if (State.state == WROTE) {
+    if (State == WROTE) {
         blink(RED, 2);
-        analogWrite(1, 0); // shut off 
-        State.state = IDLE;
+        State = IDLE;
 
     // we just responded to a command, the state of our peripheral may have changed.
-    } else if (State.state == READ) {
+    } else if (State == READ) {
         blink(GRN, 2);
 
         if (i2c_regs[0]=='I') {
-            State.Brightness = (i2c_regs[1]-'0')*28;
-            analogWrite(1, State.Brightness);
+            laser.setBrightness(i2c_regs[1]);
         }
 
-        if (i2c_regs[0]=='B') {
-            State.Blinker = 0x0F & i2c_regs[1];
+        if (i2c_regs[0]=='M') {
+            laser.setMode(i2c_regs[1]);
         }
-        State.state = IDLE;
+        State = IDLE;
     
     // we are just waiting.  This is where you might put periodic tasks.
-    } else if (State.state == IDLE ) {
-
+    } else if (State == IDLE ) {
+        laser.update();
     }
 
 }
 
 /**
- * @brief Fires the signal bipolar LED 
+ * @brief Fires the signal bipolar LED. This operation isn't strictly necessary but
+ *          is useful for debugging.
  * 
  * @param color red or green (or whatever two colors)
  * @param blinks how many blinks to do (count)
@@ -165,9 +155,9 @@ void blink(uint8_t color, uint8_t blinks) {
  * this callback is installed as an ISR
  */
 void requestEvent() {
-    TinyWireS.send(State.Brightness);
-    TinyWireS.send(State.Blinker);
-    State.state = WROTE;
+    TinyWireS.send(laser.getBrightness());
+    TinyWireS.send(laser.getMode());
+    State = WROTE;
 }
 
 /**
@@ -186,5 +176,5 @@ void receiveEvent(uint8_t howMany) {
         i2c_regs[0] = TinyWireS.receive();      // receive byte as a character
         }
     i2c_regs[1] = TinyWireS.receive();    // receive byte as an integer
-    State.state = READ;
+    State = READ;
 }
