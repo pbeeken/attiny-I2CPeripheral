@@ -26,3 +26,5 @@ Debugging is tricky but you can return state information in a response.  Visual 
 
 
 $^\dagger$ This is a general issue when you take charge of interrupts on the ATTiny. You need to rethink how you do timing.
+
+Latest version works to control brightness, alternate from Steady, Blink, and Pulse control.  

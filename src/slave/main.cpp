@@ -58,7 +58,7 @@ LaserControl laser(LASER_PIN);
  *        note the data type. Many issues that arose in past debugging
  *        were resolved by being strict with data types. 
  */
-volatile uint8_t i2c_regs[] = {'O', 'K',};
+volatile uint8_t i2c_rcvbuffer[5];
 
 // Forward declarations for routines:
 void blink(uint8_t color, uint8_t blinks=2);
@@ -114,13 +114,16 @@ void loop() {
     } else if (State == READ) {
         blink(GRN, 2);
 
-        if (i2c_regs[0]=='I') {
-            laser.setBrightness(i2c_regs[1]);
+        if (i2c_rcvbuffer[0]=='I') {
+            laser.setBrightness(i2c_rcvbuffer[1]);
         }
 
-        if (i2c_regs[0]=='M') {
-            laser.setMode(i2c_regs[1]);
+        if (i2c_rcvbuffer[0]=='M') {
+            i2c_rcvbuffer[2] = i2c_rcvbuffer[2] == 0 ? 32 : i2c_rcvbuffer[2]; // place default value
+            laser.setMode(i2c_rcvbuffer[1], (i2c_rcvbuffer[2]<<4)*MILISEC );  // period in increments of 16msec    
         }
+
+        laser.update();
         State = IDLE;
     
     // we are just waiting.  This is where you might put periodic tasks.
@@ -171,10 +174,12 @@ void requestEvent() {
  * operate on the expected # of values.
  */
 void receiveEvent(uint8_t howMany) {
+    uint8_t i = 0;
     // In the current model we are expecting 2 bytes.
     while (1 < TinyWireS.available()) { // loop through all but the last
-        i2c_regs[0] = TinyWireS.receive();      // receive byte as a character
+        i2c_rcvbuffer[i++] = TinyWireS.receive();      // receive byte as a character
         }
-    i2c_regs[1] = TinyWireS.receive();    // receive byte as an integer
+    i2c_rcvbuffer[i++] = TinyWireS.receive();    // receive byte as an integer
+    i2c_rcvbuffer[i] = 0;                        // put default 0 as last value
     State = READ;
 }

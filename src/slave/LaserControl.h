@@ -41,27 +41,39 @@ class LaserControl {
         curMode = mode;
     }
 
+    /**
+     * @brief Called at 'setup()' to start things rolling. 
+     *        Traditional way to kick off peripherals on arduinos
+     */
     void begin() {
         pinMode(laserPin, OUTPUT); // OC1A, also The only HW-PWM -pin supported by the tiny core analogWrite
     }
 
+    /**
+     * @brief Set the maximum brightness level
+     */
     void setBrightness(int16_t brightness) {
         maxBrightness = brightness;
         curBrightness = brightness;
     }
 
+    /**
+     * @brief Get the current brightness level
+     */
     uint8_t getBrightness() {return (uint8_t)0xFF & curBrightness;}
 
-    uint8_t getMode() {return curMode;}
-
+    /**
+     * @brief Set the mode: Steady, Blink, and Pulse
+     */
     void setMode(int16_t mode, uint32_t per=500*MILISEC) {
         curMode = mode;
         if (curMode==STEADY) {
-            period = 500*MILISEC;
+            period = 0*MILISEC;  // doesn't matter we don't use this
             nextEvent = micros();
             }
         else if (curMode==BLINK) {
             period = per;
+            step = 0;  // doesn't matter because we don't do this.
             nextEvent = micros() + (period >> 1);
             curBrightness = 0; // start off
             }
@@ -73,6 +85,16 @@ class LaserControl {
             }
         }
 
+    /**
+     * @brief Get the mode: Steady, Blink, and Pulse
+     */
+    uint8_t getMode() {return curMode;}
+
+
+
+    /**
+     * @brief update the laser output. Called in the 'loop()'
+     */
     void update() {
         if (curMode == STEADY) { 
             // don't do anything
