@@ -24,7 +24,32 @@ More research revealed that I was working harder than I had to on the ATTiny,
 
 Debugging is tricky but you can return state information in a response.  Visual feedback (bi-stable LED) is helpful.
 
+Latest version works to control brightness, alternate from Steady, Blink, and Pulse control.  
+
+I have implemented varying instruction length with success but what seems to work most reliably is keeping your 
+instruction protocol simple and straightforward.  
+
+## I want to drive a laser pointer.
+
+Commands take the form of 2 characters.
+  - character 1 is **I**ntensity, **M**ode, **P**, period
+  - character 2 is a number or letter depending on the command character (1)
+     - if the $1^{st}$ is **I** then the $2^{nd}$ is a value from 0 $\rightarrow$ 255
+     - if the $1^{st}$ is **M** then the $2^{nd}$ is a character **S**teady, **B**link, or **P**ulse (heartbeat)
+     - if the $1^{st}$ is **P** then the $2^{nd}$ is a string from '0' $\rightarrow$ '9' which is index into the following intervals.
+
+ |char|period in ms|
+ |:-:|--:|
+ |0|64|
+ |1|125|
+ |2|250|
+ |3|500|
+ |4|750|
+ |5|1000|
+ |6|1500|
+ |7|2000|
+ |8|3000|
+ |9|4000|
+
 
 $^\dagger$ This is a general issue when you take charge of interrupts on the ATTiny. You need to rethink how you do timing.
-
-Latest version works to control brightness, alternate from Steady, Blink, and Pulse control.  

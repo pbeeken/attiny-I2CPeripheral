@@ -119,8 +119,11 @@ void loop() {
         }
 
         if (i2c_rcvbuffer[0]=='M') {
-            i2c_rcvbuffer[2] = i2c_rcvbuffer[2] == 0 ? 32 : i2c_rcvbuffer[2]; // place default value
-            laser.setMode(i2c_rcvbuffer[1], (i2c_rcvbuffer[2]<<4)*MILISEC );  // period in increments of 16msec    
+            laser.setMode(i2c_rcvbuffer[1]);  // mode character    
+        }
+
+        if (i2c_rcvbuffer[0]=='P') {
+            laser.setPeriod(i2c_rcvbuffer[1]-'0');  // index into periods    
         }
 
         laser.update();

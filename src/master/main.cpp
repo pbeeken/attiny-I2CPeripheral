@@ -34,15 +34,6 @@ void loop() {
             Wire.endTransmission();
             Serial << "Transmit " << "[" << _CHAR(buff[0]) << _CHAR(buff[1]) << "]" << endl;
         }
-        else if (cc=='b') {
-            buff[0] = 'M';
-            buff[1] = 'B';
-            buff[2] = 16;
-            Wire.beginTransmission(I2C_SLAVE_ADDRESS);
-            Wire.write(buff, 3);
-            Wire.endTransmission();
-            Serial << "Transmit " << "[" << _CHAR(buff[0]) << _CHAR(buff[1]) << _DEC(buff[2]) << "]" << endl;
-        }
         else if (cc=='S') {
             buff[0] = 'M';
             buff[1] = 'S';
@@ -59,14 +50,13 @@ void loop() {
             Wire.endTransmission();
             Serial << "Transmit " << "[" << _CHAR(buff[0]) << _CHAR(buff[1]) << "]" << endl;
         }        
-         else if (cc=='p') {
-            buff[0] = 'M';
-            buff[1] = 'P';
-            buff[2] = 64;
+         else if (isLowerCase(cc)) {
+            buff[0] = 'P';
+            buff[1] = (cc-'a')+'0';
             Wire.beginTransmission(I2C_SLAVE_ADDRESS);
-            Wire.write(buff, 3);
+            Wire.write(buff, 2);
             Wire.endTransmission();
-            Serial << "Transmit " << "[" << _CHAR(buff[0]) << _CHAR(buff[1]) << _DEC(buff[2]) << "]" << endl;
+            Serial << "Transmit " << "[" << _CHAR(buff[0]) << _CHAR(buff[1]) << "]" << endl;
         }        
        else if (isDigit(cc)) {
             buff[0] = 'I';

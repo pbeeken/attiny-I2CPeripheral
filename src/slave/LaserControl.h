@@ -8,6 +8,12 @@
 
 #define MILISEC 1000L
 #define SEC     10000000L
+
+uint64_t PERIODS[] = {
+    64000L, 125000L, 250000L, 500000L, 750000L, 
+    1000000L, 1500000L, 2000000L, 3000000L, 4000000L,
+};
+
 /**
  * LaserControl contains all the operation and management of the LaserPointer
  * The device is powered directly from a PWM port on an ATTiny that is acting
@@ -65,22 +71,20 @@ class LaserControl {
     /**
      * @brief Set the mode: Steady, Blink, and Pulse
      */
-    void setMode(int16_t mode, uint32_t per=500*MILISEC) {
+    void setMode(int16_t mode) {
         curMode = mode;
         if (curMode==STEADY) {
-            period = 0*MILISEC;  // doesn't matter we don't use this
+            period = 500*MILISEC;  // reset period
             nextEvent = micros();
             }
         else if (curMode==BLINK) {
-            period = per;
             step = 0;  // doesn't matter because we don't do this.
-            nextEvent = micros() + (period >> 1);
+            nextEvent = micros() + (period/4);
             curBrightness = 0; // start off
             }
         else if (curMode==PULSE) {
-            period = per;
             step = maxBrightness / 16;  // 16 levels
-            nextEvent = micros() + (period >> 1)/16;
+            nextEvent = micros() + (period/4)/16;
             curBrightness = 0; // start off
             }
         }
@@ -90,6 +94,26 @@ class LaserControl {
      */
     uint8_t getMode() {return curMode;}
 
+    /**
+     * @brief Set the period in 16msec intervals
+     */
+    void setPeriod(int per) {
+        per = constrain(per, 0, 9);
+        period = PERIODS[per];        
+        if (curMode==BLINK)
+            nextEvent = micros() + (period/4);
+        else if (curMode==PULSE)
+            nextEvent = micros() + (period/4)/16;
+    }
+
+    /**
+     * @brief Get the period in 16msec intervals
+     */
+    int getPeriod() {
+        for(int i=0; i<10; i++)
+            if (period == PERIODS[i]) return i;
+        return -1;
+    }
 
 
     /**
