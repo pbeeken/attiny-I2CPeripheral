@@ -29,6 +29,8 @@
 #define TWI_RX_BUFFER_SIZE ( 16 )
 #endif
 
+#define PRODUCTION
+
 // Declarations
 /**
  * Method that handles a response for information.  The specifics of what is being asked for
@@ -71,11 +73,12 @@ const uint8_t GRN = 0x43; // Not required for final version.
  */
 void setup() {
     // debugging LED
+#ifndef PRODUCTION    
     pinMode(3, OUTPUT); // OC1B-, Arduino pin 3, ADC
     pinMode(4, OUTPUT); // OC1B-, Arduino pin 4, ADC
     digitalWrite(3, LOW); // Note that this makes the led turn on, it's wire this way to allow for the voltage sensing above.
     digitalWrite(4, LOW); // Note that this makes the led turn on, it's wire this way to allow for the voltage sensing above.
-
+#endif
     laser.begin();
 
     /**
@@ -144,6 +147,7 @@ void loop() {
  * @param blinks how many blinks to do (count)
  */
 void blink(uint8_t color, uint8_t blinks) {
+#ifndef PRODUCTION    
     while(blinks--) {
         digitalWrite(color & 0x0F, LOW);
         tws_delay(50);
@@ -152,6 +156,7 @@ void blink(uint8_t color, uint8_t blinks) {
     }
     digitalWrite(color & 0x0F, LOW);
     digitalWrite((color & 0xF0) >> 4, LOW);
+#endif
 }
 
 /**
