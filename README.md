@@ -55,17 +55,19 @@ I have implemented varying instruction length with success but what seems to wor
 |2|Mode/Freq| upper nibble 0,1,2 <br/>lower nibble blink period|
 
 ### Register Details:
-  Reg 0: byte of data is 1 for on and 0 for off. This simple setting allows for turning on and off the laser without changing any other settings.
+  > $\boxed{\text{Reg 0}}$ byte of data is 1 for on and 0 for off. This simple setting allows for turning on and off the laser without changing any other settings.
 
-  Reg 1: the one byte of data sets the intensity from 0-255 (but to be fair the visible difference between any 5 levels isn't obvious)
+  > $\boxed{\text{Reg 1}}$ the one byte of data sets the intensity from 0-255 (but to be fair the visible difference between any 5 levels isn't obvious)
 
-  Reg 2: the one byte of data has two nibbles of information for settng the Mode and Period. 
-
-    Mode 0: 0x0- is steady lower nibble is ignored.
-    Mode 1: 0x1m is blink mode where m is the period below.
-    Mode 2: 0b2m is pulse mode (also known as heartbeat where m is the period below)
-
- |m|~period in ms|m|~period in ms|
+  > $\boxed{\text{Reg 2}}$ the one byte of data has two nibbles of information for settng the Mode and Period. $\boxed{\boxed{mode}\boxed{period}}$
+---
+ |$\boxed{mode}$|Explanation|
+ |---|---|
+ |0x0|steady (lower nibble is ignored)|
+ |0x1|is blink mode where $\boxed{period}$ is gived below|
+ |0x2|is pulse mode (also known as heartbeat where $\boxed{period}$ is gived below|
+---
+ |$\boxed{period}$|~period in ms|$\boxed{period}$|~period in ms|
  |--:|:-:|--:|:-:|
  |0x1|64|0x2|125|
  |0x3|250|0x4|500|
@@ -73,5 +75,5 @@ I have implemented varying instruction length with success but what seems to wor
  |0x7|1500|0x8|2000|
  |0x9|3000|0xA|4000|
 
-
+---
 $^\dagger$ This is a general issue when you take charge of interrupts on the ATTiny. You need to rethink how you do timing.
