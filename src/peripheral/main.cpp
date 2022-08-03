@@ -6,11 +6,11 @@
  * @date 2021-07-15 initial
  *
  * This is meant to be used as a template for the 'firmware' on an ATTiny85 to create
- * the 'Slave' for a 'Master' in order to offload tasks for communicatung or
+ * the 'Peripheral' for a 'Controller' in order to offload tasks for communicatung or
  * controlling some electronic device.  This particular example is used to control the
  * brightness of a laser pointer.  It also provides for modulating the light 
  * (continuous, pulsed, etc). The ultimate goal is to create a display indicator.
- * Debugging the slave is tricky even when you have an oscilloscope as you need to know
+ * Debugging the Peripheral is tricky even when you have an oscilloscope as you need to know
  * when the device has successfully interpreted a command. In this template I use a bicolored
  * LED which will light red/green depending on the polarity of pins not used for something else.
  * You can use this as a visual cue as to whether the commands sent are interpretted the way
@@ -20,7 +20,7 @@
 #include <Arduino.h>
 
 // The I2C address on the bus. This value needs to be unique w.r.t. other devices on the bus
-#define I2C_SLAVE_ADDRESS 0x14 // the 7-bit address (remember to change this when adapting this example)
+#define I2C_Peripheral_ADDRESS 0x14 // the 7-bit address (remember to change this when adapting this example)
 #include <TinyWireS.h>
 #include "LaserControl.h"
 
@@ -38,7 +38,7 @@
  **/
 void requestEvent();
 /**
- * Method that handles revceiving data from the "master". The information here would set the
+ * Method that handles revceiving data from the "Controller". The information here would set the
  * the state of the machine.
  **/
 void receiveEvent(uint8_t howMany);
@@ -82,9 +82,10 @@ void setup() {
     laser.begin();
 
     /**
-     * Reminder: taking care of pull-ups is the master's (controller's) job
+     * Reminder: taking care of pull-ups is the Controller
+'s (controller's) job
      */
-    TinyWireS.begin(I2C_SLAVE_ADDRESS);
+    TinyWireS.begin(I2C_Peripheral_ADDRESS);
     TinyWireS.onReceive(receiveEvent);
     TinyWireS.onRequest(requestEvent);
 

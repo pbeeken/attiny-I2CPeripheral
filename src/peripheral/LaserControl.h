@@ -17,7 +17,7 @@ uint64_t PERIODS[] = {
 /**
  * LaserControl contains all the operation and management of the LaserPointer
  * The device is powered directly from a PWM port on an ATTiny that is acting
- * as an I2C 'slave' on a bus along with two servo's that aim the pointer at
+ * as an I2C 'Peripheral' on a bus along with two servo's that aim the pointer at
  * the solarsystem wall. 
  **/
 class LaserControl {
@@ -138,7 +138,7 @@ class LaserControl {
             nextEvent = micros() + (period >> 1)/16;
         }
 
-    // The core operation for this "slave"
+    // The core operation for this "peripheral"
     analogWrite(laserPin, curBrightness);        // update pin.
     }
 };
