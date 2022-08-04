@@ -125,9 +125,11 @@ void loop() {
     // Act on the current state.
 
     // We just responded to a data request.
+    // TODO: We aren't reading the intenal registers.
     if (State == GET_REG) {
         blink(RED, 2);
         i2c_payload = laser.registers.raw[i2c_register];
+        State = IDLE;
 
     // we just responded to a command, the state of our peripheral may have changed.
     } else if (State == SET_REG) {
@@ -188,8 +190,7 @@ void requestEvent() {
  * on the bus does so be quick, set flags for long running tasks to be called from the 
  * mainloop instead of running them directly, So the strategy is to set state values and 
  * act on them during idle.
- * @param howMany should be the number of bytes.  In practice we ignore this so we just 
- * operate on the expected # of values.
+ * @param howMany should be the number of bytes.  
  */
 void receiveEvent(uint8_t howMany) {
     if (howMany < 1) return;                    // Sanity-check
@@ -197,8 +198,10 @@ void receiveEvent(uint8_t howMany) {
 
     i2c_register = TinyWireS.receive();         // Store the register
     howMany--;
-    if (howMany==0) return;                     // This write was only to set the buffer for next read
-
+    if (howMany==0) { // This write was only to set the buffer for next read
+        State = GET_REG;
+        return;
+    }
     uint8_t i = 0;
     while (howMany--) { // loop through all but the last
         i2c_rcvbuffer[i++] = TinyWireS.receive();      // receive byte as a character

@@ -40,7 +40,7 @@ class LaserControl {
         uint8_t  laserPin;
         bool     laserOn;           // Used for quick on and off
         int16_t  curIntensity;      // for modes when it varies, this is the brightness that is used to light the 
-        uint32_t period;            // actual period (when varying)
+        uint32_t actPeriod;            // actual period (when varying)
         uint32_t nextEvent;         // time to do something
         int16_t  stepIntensity;     // step to change brightness in PULSE
 
@@ -65,7 +65,7 @@ class LaserControl {
         registers.zero = 0x06000000;  // zero everything set period to 6th index
         curIntensity = 0;
         nextEvent = micros();
-        period = PERIODS[registers.data.period]; 
+        actPeriod = PERIODS[registers.data.period]; 
         registers.data.onOff = 1;
     }
 
@@ -122,17 +122,17 @@ class LaserControl {
     void setMode(int16_t mode) {
         registers.data.mode = mode;
         if (mode==STEADY) {
-            period = PERIODS[registers.data.period];  // reset period
+            actPeriod = PERIODS[registers.data.period];  // reset period
             nextEvent = micros();
             }
         else if (mode==BLINK) {
             stepIntensity = 0;  // doesn't matter because we don't do this.
-            nextEvent = micros() + (period/4);
+            nextEvent = micros() + (actPeriod/4);
             curIntensity = 0; // start off
             }
         else if (mode==PULSE) {
             stepIntensity = registers.data.intensity / 16;  // 16 levels
-            nextEvent = micros() + (period/4)/16;
+            nextEvent = micros() + (actPeriod/4)/16;
             curIntensity = 0; // start off
             }
         }
@@ -149,11 +149,11 @@ class LaserControl {
      */
     void setPeriod(uint8_t per) {
         registers.data.period = constrain(per, 0, sizeof(PERIODS)/sizeof(PERIODS[0]));
-        period = PERIODS[per];   
+        actPeriod = PERIODS[per];   
         if (getMode()==BLINK)
-            nextEvent = micros() + (period/4);
+            nextEvent = micros() + (actPeriod/4);
         else if (getMode()==PULSE)
-            nextEvent = micros() + (period/4)/16;
+            nextEvent = micros() + (actPeriod/4)/16;
     }
 
     /**
@@ -161,7 +161,7 @@ class LaserControl {
      */
     int getPeriod() {
         for(uint8_t i=0; i<sizeof(PERIODS)/sizeof(PERIODS[0]); i++)
-            if (period == PERIODS[i]) return i;
+            if (actPeriod == PERIODS[i]) return i;
         return 0;
     }
 
@@ -184,7 +184,7 @@ class LaserControl {
         else if (registers.data.mode == BLINK && micros() > nextEvent) {
             if (curIntensity == 0) curIntensity = registers.data.intensity;
             else                   curIntensity = 0;
-                nextEvent = micros() + (period/4);
+                nextEvent = micros() + (actPeriod/4);
             }
 
         else if (registers.data.mode == PULSE && micros() > nextEvent) {
@@ -197,7 +197,7 @@ class LaserControl {
                 curIntensity = registers.data.intensity; 
                 stepIntensity = -stepIntensity;
             }
-            nextEvent = micros() + (period/4)/16;
+            nextEvent = micros() + (actPeriod/4)/16;
         }
 
     // The core operation for this "peripheral"

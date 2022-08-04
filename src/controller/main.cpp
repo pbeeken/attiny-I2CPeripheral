@@ -20,7 +20,6 @@ uint8_t period = 0;
 uint8_t onoff = 0;
 
 void loop() {
-
     if (Serial.available()>0) {
         char cc = Serial.read();
         if (cc=='R') {
@@ -53,7 +52,7 @@ void loop() {
         }
         else if (cc=='P') {
             Wire.beginTransmission(I2C_PERIPHERAL_ADDRESS);
-            Wire.write(3);           
+            Wire.write(3);
             Wire.write((mode<<4) | period);
             Wire.endTransmission();
             Serial << "Transmit " << "[" << mode << "-" << period << "] 0x" << _HEX((mode<<4) | period) << endl;
@@ -65,13 +64,25 @@ void loop() {
         }
         else if (cc=='T') {
             Wire.beginTransmission(I2C_PERIPHERAL_ADDRESS);
-            Wire.write(1);           
+            Wire.write(1);
             Wire.write(onoff);
             Wire.endTransmission();
             Serial << "State " << "[" << onoff << "]" << endl;
             onoff += 1;
             onoff %= 2;
-        }        
+        }
+        else if (cc=='S') {
+            uint8_t val, rc;
+            for( uint8_t iad=1; iad<4; iad++) {
+                Wire.beginTransmission(I2C_PERIPHERAL_ADDRESS);
+                rc = Wire.write(iad);
+                Wire.endTransmission();
+                Wire.requestFrom(I2C_PERIPHERAL_ADDRESS, 1); // This register is 8 bits = 1 byte long
+                delay(2); // Wait for data to be available
+                val = (uint8_t)Wire.read();
+                Serial << "State (" << rc << ")" << "[" << iad  <<"]: " << val << " 0x" << _HEX(val) << " 0b" << _BIN(val) << "]" << endl;
+            }
+        }
     }
-    delay(100);
+  delay(100);
 }
