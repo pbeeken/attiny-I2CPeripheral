@@ -48,18 +48,21 @@ I have implemented varying instruction length with success but what seems to wor
 ## Driving a laser pointer (could be any diode).
 
 ### Summary:
-|Register| Role |Values|
-|---|---|---|
-|0|State: Off or On leaving everything the same |0 or 1|
-|1|Intensity| 0 $\rightarrow$ 255 |
-|2|Mode/Freq| upper nibble 0,1,2 <br/>lower nibble blink period|
+|Register| Role |Values|R/W|
+|:-:|---|---|:-:|
+|0|Reset: 7 will reset to startup values |7|W|
+|1|State: Off or On leaving everything the same |0 or 1|R/W|
+|2|Intensity| 0 $\rightarrow$ 255 |R/W|
+|3|Mode/Period| $\boxed{\text{Mode}}\boxed{\text{Period}}\\ \boxed{0b00mmpppp}$|R/W|
 
 ### Register Details:
-  > $\boxed{\text{Reg 0}}$ byte of data is 1 for on and 0 for off. This simple setting allows for turning on and off the laser without changing any other settings.
+  > $\boxed{\text{Reg 0}}$ writing a 7 to register 0 returns the device to its start-up state (Steady, Intensity: 0, Period: 6 ~1sec ).
+  
+  > $\boxed{\text{Reg 1}}$ byte of data is 1 for on and 0 for off. This simple setting allows for turning the laser on and off without changing any other settings.
 
-  > $\boxed{\text{Reg 1}}$ the one byte of data sets the intensity from 0-255 (but to be fair the visible difference between any 5 levels isn't obvious)
+  > $\boxed{\text{Reg 2}}$ the one byte of data sets the intensity from 0-255 (but to be fair the visible difference between any 5 levels isn't obvious)
 
-  > $\boxed{\text{Reg 2}}$ the one byte of data has two nibbles of information for settng the Mode and Period. $\boxed{\boxed{mode}\boxed{period}}$
+  > $\boxed{\text{Reg 3}}$ the one byte of data has two nibbles of information for settng the Mode and Period. $\boxed{\boxed{mode}\boxed{period}}$
 ---
  |$\boxed{mode}$|Explanation|
  |---|---|
