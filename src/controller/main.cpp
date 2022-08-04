@@ -14,58 +14,64 @@ void setup() {
 #define _CHAR(b) ((char)b)
 
 uint8_t Blinker = 0;
+uint8_t intens = 0;
+uint8_t mode = 0;
+uint8_t period = 0;
+uint8_t onoff = 0;
 
 void loop() {
-    uint8_t buff[4];
 
     if (Serial.available()>0) {
         char cc = Serial.read();
         if (cc=='R') {
-            Wire.requestFrom(I2C_PERIPHERAL_ADDRESS, 2);
-            buff[0] = (uint16_t) Wire.read();
-            buff[1] = Wire.read();
-            Serial << "Response [" << _DEC(buff[0]) << "-" << _CHAR(buff[1]) << "] " << endl;
-        }
-        else if (cc=='B') {
-            buff[0] = 'M';
-            buff[1] = 'B';
             Wire.beginTransmission(I2C_PERIPHERAL_ADDRESS);
-            Wire.write(buff, 2);
+            Wire.write(0);
+            Wire.write(7);
             Wire.endTransmission();
-            Serial << "Transmit " << "[" << _CHAR(buff[0]) << _CHAR(buff[1]) << "]" << endl;
+            Serial << "Reset" << endl;
         }
-        else if (cc=='S') {
-            buff[0] = 'M';
-            buff[1] = 'S';
+        else if (cc=='I') {
             Wire.beginTransmission(I2C_PERIPHERAL_ADDRESS);
-            Wire.write(buff, 2);
+            Wire.write(2);
+            Wire.write(intens);
             Wire.endTransmission();
-            Serial << "Transmit " << "[" << _CHAR(buff[0]) << _CHAR(buff[1]) << "]" << endl;
+            Serial << "Transmit " << "[" << _DEC(intens) << " 0x" << _HEX(intens) << "]" << endl;
+            intens += 10;
+            intens %= 200;
+        }
+        else if (cc=='M') {
+            Wire.beginTransmission(I2C_PERIPHERAL_ADDRESS);
+            Wire.write(3);
+            Wire.write((mode<<4) | period);
+            Wire.endTransmission();
+            Serial << "Transmit " << "[" << mode << "-" << period << "] 0x" << _HEX((mode<<4) | period) << endl;
+        }
+        else if (cc=='m') {
+            mode += 1;
+            mode %= 3;
+            Serial << "Changed mode: " << mode << endl;
         }
         else if (cc=='P') {
-            buff[0] = 'M';
-            buff[1] = 'P';
             Wire.beginTransmission(I2C_PERIPHERAL_ADDRESS);
-            Wire.write(buff, 2);
+            Wire.write(3);           
+            Wire.write((mode<<4) | period);
             Wire.endTransmission();
-            Serial << "Transmit " << "[" << _CHAR(buff[0]) << _CHAR(buff[1]) << "]" << endl;
-        }        
-         else if (isLowerCase(cc)) {
-            buff[0] = 'P';
-            buff[1] = (cc-'a')+'0';
-            Wire.beginTransmission(I2C_PERIPHERAL_ADDRESS);
-            Wire.write(buff, 2);
-            Wire.endTransmission();
-            Serial << "Transmit " << "[" << _CHAR(buff[0]) << _CHAR(buff[1]) << "]" << endl;
-        }        
-       else if (isDigit(cc)) {
-            buff[0] = 'I';
-            buff[1] = ((uint8_t)cc-'0')*20;
-            Wire.beginTransmission(I2C_PERIPHERAL_ADDRESS);
-            Wire.write(buff, 2);
-            Wire.endTransmission();
-            Serial << "Transmit " << "[" << _CHAR(buff[0]) << cc << "]" << endl;
+            Serial << "Transmit " << "[" << mode << "-" << period << "] 0x" << _HEX((mode<<4) | period) << endl;
         }
+        else if (cc=='p') {
+            period += 1;
+            period %= 10;
+            Serial << "Changed period: " << period << endl;
+        }
+        else if (cc=='T') {
+            Wire.beginTransmission(I2C_PERIPHERAL_ADDRESS);
+            Wire.write(1);           
+            Wire.write(onoff);
+            Wire.endTransmission();
+            Serial << "State " << "[" << onoff << "]" << endl;
+            onoff += 1;
+            onoff %= 2;
+        }        
     }
     delay(100);
 }

@@ -72,11 +72,11 @@ I have implemented varying instruction length with success but what seems to wor
 ---
  |$\boxed{period}$|~period in ms|$\boxed{period}$|~period in ms|
  |--:|:-:|--:|:-:|
- |0x1|64|0x2|125|
- |0x3|250|0x4|500|
- |0x5|750|0x6|1000|
- |0x7|1500|0x8|2000|
- |0x9|3000|0xA|4000|
+ |0x0|64|0x1|125|
+ |0x2|250|0x3|500|
+ |0x4|750|0x5|1000|
+ |0x6|1500|0x7|2000|
+ |0x8|3000|0x9|4000|
 
 ---
 $^\dagger$ This is a general issue when you take charge of interrupts on the ATTiny. You need to rethink how you do timing.

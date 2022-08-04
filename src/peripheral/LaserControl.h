@@ -22,29 +22,73 @@ uint64_t PERIODS[] = {
  **/
 class LaserControl {
     public:
+        volatile union {
+            uint8_t raw[4];         // raw bytes
+            struct {
+                uint8_t reset       : 3; // if set to 7 reset
+                uint8_t             : 0; // restart to next boundary
+                uint8_t onOff       : 1; // 0-off 1-on
+                uint8_t             : 0; // restart to next boundary
+                uint8_t intensity   : 8; // current set intensity
+                uint8_t period      : 4; // period index
+                uint8_t mode        : 2; // mode
+                uint8_t             : 2; // unused
+            } data;
+            uint32_t zero;          // easy reset one and done.
+        } registers;
+
         uint8_t  laserPin;
-        int16_t  maxBrightness;      // value between 0(off) to 255(full on)
-        int16_t  curBrightness;      // for modes when it varies, this is the current brightness
-        uint8_t  curMode;            // current mode 
-        uint32_t period;             // period when varying
-        uint32_t nextEvent;          // time to do something
-        int16_t  step;               // step to change brightness in PULSE
+        bool     laserOn;           // Used for quick on and off
+        int16_t  curIntensity;      // for modes when it varies, this is the brightness that is used to light the 
+        uint32_t period;            // actual period (when varying)
+        uint32_t nextEvent;         // time to do something
+        int16_t  stepIntensity;     // step to change brightness in PULSE
 
         enum {  // Modes
-            STEADY='S', BLINK='B', PULSE='P'
+            STEADY=0, BLINK=1, PULSE=2
         };
 
     /**
      * Consrtuctor and initializes variables. Only required value is pin which defines
      * the pin to which the laser is connected.
      **/
-    LaserControl(uint8_t pin, int16_t brightness=0, uint8_t mode=STEADY) {
+    LaserControl(uint8_t pin) {
         laserPin = pin;
-        maxBrightness = brightness;
-        curBrightness = maxBrightness;
+        reset();
+    }
+
+    /**
+     * @brief Used to reset the chip to startup state
+     * 
+     */
+    void reset() {
+        registers.zero = 0x06000000;  // zero everything set period to 6th index
+        curIntensity = 0;
         nextEvent = micros();
-        period = 500*MILISEC; // 0.5 second
-        curMode = mode;
+        period = PERIODS[registers.data.period]; 
+        registers.data.onOff = 1;
+    }
+
+    /**
+     * @brief Set the I2C 'register'
+     * 
+     * @param i index 
+     * @param v value
+     */
+    void setRegister(uint8_t i, uint8_t v) {
+        i = constrain(i, 0, sizeof(registers.raw) / sizeof(registers.raw[0]));
+        registers.raw[i] = v;
+    }
+
+    /**
+     * @brief Get the I2C 'register'
+     * 
+     * @param i index 
+     * @return int8_t value 
+     */
+    int8_t getRegister(uint8_t i) {
+        i = constrain(i, 0, sizeof(registers.raw) / sizeof(registers.raw[0]));
+        return registers.raw[i];
     }
 
     /**
@@ -53,56 +97,62 @@ class LaserControl {
      */
     void begin() {
         pinMode(laserPin, OUTPUT); // OC1A, also The only HW-PWM -pin supported by the tiny core analogWrite
+        reset();
     }
 
     /**
      * @brief Set the maximum brightness level
      */
-    void setBrightness(int16_t brightness) {
-        maxBrightness = brightness;
-        curBrightness = brightness;
+    void setIntensity(int16_t brightness) {
+        registers.data.intensity = constrain(brightness, 0, 255);
+        curIntensity = registers.data.intensity;
+        nextEvent = micros();
     }
 
     /**
      * @brief Get the current brightness level
      */
-    uint8_t getBrightness() {return (uint8_t)0xFF & curBrightness;}
+    uint8_t getIntensity() {
+        return (uint8_t)0xFF & curIntensity;
+    }
 
     /**
      * @brief Set the mode: Steady, Blink, and Pulse
      */
     void setMode(int16_t mode) {
-        curMode = mode;
-        if (curMode==STEADY) {
-            period = 500*MILISEC;  // reset period
+        registers.data.mode = mode;
+        if (mode==STEADY) {
+            period = PERIODS[registers.data.period];  // reset period
             nextEvent = micros();
             }
-        else if (curMode==BLINK) {
-            step = 0;  // doesn't matter because we don't do this.
+        else if (mode==BLINK) {
+            stepIntensity = 0;  // doesn't matter because we don't do this.
             nextEvent = micros() + (period/4);
-            curBrightness = 0; // start off
+            curIntensity = 0; // start off
             }
-        else if (curMode==PULSE) {
-            step = maxBrightness / 16;  // 16 levels
+        else if (mode==PULSE) {
+            stepIntensity = registers.data.intensity / 16;  // 16 levels
             nextEvent = micros() + (period/4)/16;
-            curBrightness = 0; // start off
+            curIntensity = 0; // start off
             }
         }
 
     /**
      * @brief Get the mode: Steady, Blink, and Pulse
      */
-    uint8_t getMode() {return curMode;}
+    uint8_t getMode() {
+        return registers.data.mode;
+        }
 
     /**
      * @brief Set the period in 16msec intervals
      */
-    void setPeriod(int per) {
-        per = constrain(per, 0, 9);
-        period = PERIODS[per];        
-        if (curMode==BLINK)
+    void setPeriod(uint8_t per) {
+        registers.data.period = constrain(per, 0, sizeof(PERIODS)/sizeof(PERIODS[0]));
+        period = PERIODS[per];   
+        if (getMode()==BLINK)
             nextEvent = micros() + (period/4);
-        else if (curMode==PULSE)
+        else if (getMode()==PULSE)
             nextEvent = micros() + (period/4)/16;
     }
 
@@ -110,9 +160,9 @@ class LaserControl {
      * @brief Get the period in 16msec intervals
      */
     int getPeriod() {
-        for(int i=0; i<10; i++)
+        for(uint8_t i=0; i<sizeof(PERIODS)/sizeof(PERIODS[0]); i++)
             if (period == PERIODS[i]) return i;
-        return -1;
+        return 0;
     }
 
 
@@ -120,25 +170,37 @@ class LaserControl {
      * @brief update the laser output. Called in the 'loop()'
      */
     void update() {
-        if (curMode == STEADY) { 
-            // don't do anything
-            curBrightness = maxBrightness;
+        if (registers.data.onOff==0) {
+            // if quick off is active then just turn off the laser
+            analogWrite(laserPin, 0);
+            return;  // we are done.
             }
 
-        else if (curMode == BLINK && micros() > nextEvent) {
-            if (curBrightness == 0) curBrightness = maxBrightness;
-            else                    curBrightness = 0;
-                nextEvent = micros() + (period >> 1);
+        if (registers.data.mode == STEADY) { 
+            // don't do anything just make sure curInensity is up to date.
+            curIntensity = registers.data.intensity;
             }
 
-        else if (curMode == PULSE && micros() > nextEvent) {
-            curBrightness += step;
-            if (curBrightness < 0)             {curBrightness = 0; step = -step;}
-            if (curBrightness > maxBrightness) {curBrightness = maxBrightness; step = -step;}
-            nextEvent = micros() + (period >> 1)/16;
+        else if (registers.data.mode == BLINK && micros() > nextEvent) {
+            if (curIntensity == 0) curIntensity = registers.data.intensity;
+            else                   curIntensity = 0;
+                nextEvent = micros() + (period/4);
+            }
+
+        else if (registers.data.mode == PULSE && micros() > nextEvent) {
+            curIntensity += stepIntensity;
+            if (curIntensity < 0)  {
+                curIntensity = 0; 
+                stepIntensity = -stepIntensity;
+            }
+            else if (curIntensity > registers.data.intensity) {
+                curIntensity = registers.data.intensity; 
+                stepIntensity = -stepIntensity;
+            }
+            nextEvent = micros() + (period/4)/16;
         }
 
     // The core operation for this "peripheral"
-    analogWrite(laserPin, curBrightness);        // update pin.
+    analogWrite(laserPin, curIntensity);        // update pin.
     }
 };

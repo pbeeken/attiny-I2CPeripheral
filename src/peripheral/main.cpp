@@ -18,18 +18,19 @@
  */
 
 #include <Arduino.h>
+#include <TinyWireS.h>
 
 // The I2C address on the bus. This value needs to be unique w.r.t. other devices on the bus
-#define I2C_Peripheral_ADDRESS 0x14 // the 7-bit address (remember to change this when adapting this example)
-#include <TinyWireS.h>
 #include "LaserControl.h"
+#define I2C_Peripheral_ADDRESS 0x14 // the 7-bit address (remember to change this when adapting this example)
+
 
 // The default buffer size, Can't recall the scope of defines right now
 #ifndef TWI_RX_BUFFER_SIZE
 #define TWI_RX_BUFFER_SIZE ( 16 )
 #endif
 
-#define PRODUCTION
+#define DEBUG
 
 // Declarations
 /**
@@ -47,20 +48,35 @@ void receiveEvent(uint8_t howMany);
  * completed states
  **/
 enum {
-    IDLE, WROTE, READ,  // Operational states
+    IDLE, GET_REG, SET_REG,  // Operational states
 };
 
 // global scopes
 uint8_t State = IDLE;
+
+// Device specific values
 const uint8_t LASER_PIN = PB1; 
 LaserControl laser(LASER_PIN);
+uint8_t DEVICE_REGISTER = 0; // device register requested for read or write.
 
 /**
  * @brief This is the buffer that holds the incoming data.
  *        note the data type. Many issues that arose in past debugging
  *        were resolved by being strict with data types. 
  */
-volatile uint8_t i2c_rcvbuffer[5];
+volatile uint8_t i2c_register;
+volatile uint8_t i2c_rcvbuffer[4];
+volatile uint8_t i2c_payload; 
+
+/**
+ * @brief This is the internal pseudo register which controls the state 
+ *        of our machine.  For the Laser we only need 4
+ *        0: Reset command (when = 7 we do a reset)
+ *        1: On/Off 
+ *        2: Intensity value
+ *        3: mode / freq 
+ */
+// volatile uint8_t registers[5]; We are keeping this in the Laser class
 
 // Forward declarations for routines:
 void blink(uint8_t color, uint8_t blinks=2);
@@ -73,17 +89,16 @@ const uint8_t GRN = 0x43; // Not required for final version.
  */
 void setup() {
     // debugging LED
-#ifndef PRODUCTION    
-    pinMode(3, OUTPUT); // OC1B-, Arduino pin 3, ADC
-    pinMode(4, OUTPUT); // OC1B-, Arduino pin 4, ADC
-    digitalWrite(3, LOW); // Note that this makes the led turn on, it's wire this way to allow for the voltage sensing above.
-    digitalWrite(4, LOW); // Note that this makes the led turn on, it's wire this way to allow for the voltage sensing above.
+#ifdef DEBUG    
+    pinMode(PB3, OUTPUT); // OC1B-, Arduino pin 3, ADC
+    pinMode(PB4, OUTPUT); // OC1B-, Arduino pin 4, ADC
+    digitalWrite(PB3, LOW); // Note that this makes the led turn on, it's wire this way to allow for the voltage sensing above.
+    digitalWrite(PB4, LOW); // Note that this makes the led turn on, it's wire this way to allow for the voltage sensing above.
 #endif
     laser.begin();
 
     /**
-     * Reminder: taking care of pull-ups is the Controller
-'s (controller's) job
+     * Reminder: taking care of pull-ups is the Controller's (controller's) job
      */
     TinyWireS.begin(I2C_Peripheral_ADDRESS);
     TinyWireS.onReceive(receiveEvent);
@@ -110,26 +125,21 @@ void loop() {
     // Act on the current state.
 
     // We just responded to a data request.
-    if (State == WROTE) {
+    if (State == GET_REG) {
         blink(RED, 2);
-        State = IDLE;
+        i2c_payload = laser.registers.raw[i2c_register];
 
     // we just responded to a command, the state of our peripheral may have changed.
-    } else if (State == READ) {
+    } else if (State == SET_REG) {
         blink(GRN, 2);
-
-        if (i2c_rcvbuffer[0]=='I') {
-            laser.setBrightness(i2c_rcvbuffer[1]);
+        // one exception, i2c_rcvbuffer[0] == 7 and i2c_register == 0
+        if ((i2c_register == 0) && (i2c_rcvbuffer[0]==7)) {
+            laser.reset();
+            blink(RED,8);
         }
-
-        if (i2c_rcvbuffer[0]=='M') {
-            laser.setMode(i2c_rcvbuffer[1]);  // mode character    
+        else {
+            laser.registers.raw[i2c_register] = i2c_rcvbuffer[0];
         }
-
-        if (i2c_rcvbuffer[0]=='P') {
-            laser.setPeriod(i2c_rcvbuffer[1]-'0');  // index into periods    
-        }
-
         laser.update();
         State = IDLE;
     
@@ -148,7 +158,7 @@ void loop() {
  * @param blinks how many blinks to do (count)
  */
 void blink(uint8_t color, uint8_t blinks) {
-#ifndef PRODUCTION    
+#ifdef DEBUG    
     while(blinks--) {
         digitalWrite(color & 0x0F, LOW);
         tws_delay(50);
@@ -167,9 +177,8 @@ void blink(uint8_t color, uint8_t blinks) {
  * this callback is installed as an ISR
  */
 void requestEvent() {
-    TinyWireS.send(laser.getBrightness());
-    TinyWireS.send(laser.getMode());
-    State = WROTE;
+    TinyWireS.send(i2c_payload);
+    State = IDLE;
 }
 
 /**
@@ -183,12 +192,17 @@ void requestEvent() {
  * operate on the expected # of values.
  */
 void receiveEvent(uint8_t howMany) {
+    if (howMany < 1) return;                    // Sanity-check
+    if (howMany > TWI_RX_BUFFER_SIZE) return;   // Also insane number
+
+    i2c_register = TinyWireS.receive();         // Store the register
+    howMany--;
+    if (howMany==0) return;                     // This write was only to set the buffer for next read
+
     uint8_t i = 0;
-    // In the current model we are expecting 2 bytes.
-    while (1 < TinyWireS.available()) { // loop through all but the last
+    while (howMany--) { // loop through all but the last
         i2c_rcvbuffer[i++] = TinyWireS.receive();      // receive byte as a character
         }
-    i2c_rcvbuffer[i++] = TinyWireS.receive();    // receive byte as an integer
     i2c_rcvbuffer[i] = 0;                        // put default 0 as last value
-    State = READ;
+    State = SET_REG;
 }
