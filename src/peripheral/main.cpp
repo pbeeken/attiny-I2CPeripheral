@@ -80,6 +80,7 @@ volatile uint8_t i2c_payload;
 
 // Forward declarations for routines:
 void blink(uint8_t color, uint8_t blinks=2);
+void toggleValue(uint8_t val);
 const uint8_t RED = 0x34; // Using bidirectional LED for debugging
 const uint8_t GRN = 0x43; // Not required for final version.
 
@@ -94,8 +95,14 @@ void setup() {
     pinMode(PB4, OUTPUT); // OC1B-, Arduino pin 4, ADC
     digitalWrite(PB3, LOW); // Note that this makes the led turn on, it's wire this way to allow for the voltage sensing above.
     digitalWrite(PB4, LOW); // Note that this makes the led turn on, it's wire this way to allow for the voltage sensing above.
+    pinMode(PB5, OUTPUT);
+    digitalWrite(PB5, LOW);
+    /**
+     *  Flag the debugging LED
+     **/
+    blink(RED, 4);
+    blink(GRN, 4);
 #endif
-    laser.begin();
 
     /**
      * Reminder: taking care of pull-ups is the Controller's (controller's) job
@@ -105,10 +112,10 @@ void setup() {
     TinyWireS.onRequest(requestEvent);
 
     /**
-     *  Flag the debugging LED
-     **/
-    blink(RED, 4);
-    blink(GRN, 4);
+     * Initialize the laser object
+     */    
+    laser.begin();
+
 }
 
 /**
@@ -125,10 +132,10 @@ void loop() {
     // Act on the current state.
 
     // We just responded to a data request.
-    // TODO: We aren't reading the intenal registers.
+    // TODO: We aren't reading the intenal registers properly
     if (State == GET_REG) {
         blink(RED, 2);
-        i2c_payload = laser.registers.raw[i2c_register];
+        i2c_payload = laser.getRegister(i2c_register);
         State = IDLE;
 
     // we just responded to a command, the state of our peripheral may have changed.
@@ -139,8 +146,12 @@ void loop() {
             laser.reset();
             blink(RED,8);
         }
+
         else {
-            laser.registers.raw[i2c_register] = i2c_rcvbuffer[0];
+            laser.setRegister(i2c_register, i2c_rcvbuffer[0]);
+#ifdef DEBUG
+            toggleValue(laser.getRegister(3));
+#endif
         }
         laser.update();
         State = IDLE;
@@ -170,6 +181,18 @@ void blink(uint8_t color, uint8_t blinks) {
     digitalWrite(color & 0x0F, LOW);
     digitalWrite((color & 0xF0) >> 4, LOW);
 #endif
+}
+
+/**
+ * @brief Toggles the LED pins so we can get a value that passed in.
+ * 
+ * @param val the byte value we want to read on the scope */
+void toggleValue(uint8_t val) {
+    digitalWrite(PB3, LOW);
+    digitalWrite(PB4, LOW);
+    shiftOut(PB4, PB3, MSBFIRST, val);
+    digitalWrite(PB3, LOW);
+    digitalWrite(PB4, LOW);
 }
 
 /**

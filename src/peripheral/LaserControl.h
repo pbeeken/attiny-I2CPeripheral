@@ -9,10 +9,11 @@
 #define MILISEC 1000L
 #define SEC     10000000L
 
-uint64_t PERIODS[] = {
+uint64_t PERIODS[] = { // in microseconds
     64000L, 125000L, 250000L, 500000L, 750000L, 
     1000000L, 1500000L, 2000000L, 3000000L, 4000000L,
 };
+#define SCALER 2 // correct for clocking error
 
 /**
  * LaserControl contains all the operation and management of the LaserPointer
@@ -78,6 +79,8 @@ class LaserControl {
     void setRegister(uint8_t i, uint8_t v) {
         i = constrain(i, 0, sizeof(registers.raw) / sizeof(registers.raw[0]));
         registers.raw[i] = v;
+        setPeriod(registers.data.period); // make sure the actPeriod has been updated.
+        setMode(registers.data.mode);
     }
 
     /**
@@ -127,12 +130,12 @@ class LaserControl {
             }
         else if (mode==BLINK) {
             stepIntensity = 0;  // doesn't matter because we don't do this.
-            nextEvent = micros() + (actPeriod/4);
+            nextEvent = micros() + (actPeriod/SCALER);
             curIntensity = 0; // start off
             }
         else if (mode==PULSE) {
             stepIntensity = registers.data.intensity / 16;  // 16 levels
-            nextEvent = micros() + (actPeriod/4)/16;
+            nextEvent = micros() + (actPeriod/SCALER)/16;
             curIntensity = 0; // start off
             }
         }
@@ -151,15 +154,15 @@ class LaserControl {
         registers.data.period = constrain(per, 0, sizeof(PERIODS)/sizeof(PERIODS[0]));
         actPeriod = PERIODS[per];   
         if (getMode()==BLINK)
-            nextEvent = micros() + (actPeriod/4);
+            nextEvent = micros() + (actPeriod/SCALER);
         else if (getMode()==PULSE)
-            nextEvent = micros() + (actPeriod/4)/16;
+            nextEvent = micros() + (actPeriod/SCALER)/16;
     }
 
     /**
      * @brief Get the period in 16msec intervals
      */
-    int getPeriod() {
+    uint8_t getPeriod() {
         for(uint8_t i=0; i<sizeof(PERIODS)/sizeof(PERIODS[0]); i++)
             if (actPeriod == PERIODS[i]) return i;
         return 0;
@@ -184,7 +187,7 @@ class LaserControl {
         else if (registers.data.mode == BLINK && micros() > nextEvent) {
             if (curIntensity == 0) curIntensity = registers.data.intensity;
             else                   curIntensity = 0;
-                nextEvent = micros() + (actPeriod/4);
+                nextEvent = micros() + (actPeriod/SCALER);
             }
 
         else if (registers.data.mode == PULSE && micros() > nextEvent) {
@@ -197,7 +200,7 @@ class LaserControl {
                 curIntensity = registers.data.intensity; 
                 stepIntensity = -stepIntensity;
             }
-            nextEvent = micros() + (actPeriod/4)/16;
+            nextEvent = micros() + (actPeriod/SCALER)/16;
         }
 
     // The core operation for this "peripheral"
