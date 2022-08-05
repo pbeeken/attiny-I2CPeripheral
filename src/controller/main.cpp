@@ -18,6 +18,25 @@ uint8_t intens = 0;
 uint8_t mode = 0;
 uint8_t period = 0;
 uint8_t onoff = 0;
+uint8_t iad = 1;
+
+void GetRegister(uint8_t internalAddress) {            
+    uint8_t val, rc=0;
+
+    while(Wire.available()) val = Wire.read(); // empty any buffer
+
+    Wire.beginTransmission(I2C_PERIPHERAL_ADDRESS);
+    Wire.write(internalAddress);
+    Wire.endTransmission();
+    rc = Wire.requestFrom(I2C_PERIPHERAL_ADDRESS, 1); // This register is 8 bits = 1 byte long
+    
+    uint32_t timeout = micros() + 5000;
+    while( !Wire.available() && timeout>micros() );
+    
+    val = (uint8_t)Wire.read();
+    Serial << "State (" << rc << ")" << "[" << internalAddress  <<"]: " << val << ", 0x" << _HEX(val) << ", 0b" << _BIN(val) << endl;
+}
+
 
 void loop() {
     if (Serial.available()>0) {
@@ -71,17 +90,19 @@ void loop() {
             onoff += 1;
             onoff %= 2;
         }
-        else if (cc=='S') {
-            uint8_t val, rc;
-            for( uint8_t iad=1; iad<4; iad++) {
-                Wire.beginTransmission(I2C_PERIPHERAL_ADDRESS);
-                rc = Wire.write(iad);
-                Wire.endTransmission();
-                Wire.requestFrom(I2C_PERIPHERAL_ADDRESS, 1); // This register is 8 bits = 1 byte long
-                delay(2); // Wait for data to be available
-                val = (uint8_t)Wire.read();
-                Serial << "State (" << rc << ")" << "[" << iad  <<"]: " << val << " 0x" << _HEX(val) << " 0b" << _BIN(val) << "]" << endl;
-            }
+        else if (cc=='1') {
+            GetRegister(1);
+        }
+        else if (cc=='2') {
+            GetRegister(2);
+        }
+        else if (cc=='3') {
+            GetRegister(3);
+        }
+        else if (cc=='s') {
+            iad++;
+            iad = 1 + (iad%3);
+            Serial << " internal register [" << iad << "]" << endl;
         }
     }
   delay(100);

@@ -23,14 +23,12 @@
 // The I2C address on the bus. This value needs to be unique w.r.t. other devices on the bus
 #include "LaserControl.h"
 #define I2C_Peripheral_ADDRESS 0x14 // the 7-bit address (remember to change this when adapting this example)
-
+#undef DEBUG
 
 // The default buffer size, Can't recall the scope of defines right now
 #ifndef TWI_RX_BUFFER_SIZE
 #define TWI_RX_BUFFER_SIZE ( 16 )
 #endif
-
-#define DEBUG
 
 // Declarations
 /**
@@ -79,18 +77,26 @@ volatile uint8_t i2c_payload;
 // volatile uint8_t registers[5]; We are keeping this in the Laser class
 
 // Forward declarations for routines:
-void blink(uint8_t color, uint8_t blinks=2);
-void toggleValue(uint8_t val);
+#ifdef DEBUG
+void DBGBlink(uint8_t color, uint8_t blinks=2);
+void DBGDispByte(uint8_t val);
 const uint8_t RED = 0x34; // Using bidirectional LED for debugging
 const uint8_t GRN = 0x43; // Not required for final version.
+#else
+#define DBGBlink(c,b)
+#define DBGDispByte(v)
+#define RED 0
+#define GRN 0
+#endif
 
 /**
  * @brief The setup method.
  * 
  */
 void setup() {
-    // debugging LED
+
 #ifdef DEBUG    
+    // debugging Utilities
     pinMode(PB3, OUTPUT); // OC1B-, Arduino pin 3, ADC
     pinMode(PB4, OUTPUT); // OC1B-, Arduino pin 4, ADC
     digitalWrite(PB3, LOW); // Note that this makes the led turn on, it's wire this way to allow for the voltage sensing above.
@@ -100,8 +106,8 @@ void setup() {
     /**
      *  Flag the debugging LED
      **/
-    blink(RED, 4);
-    blink(GRN, 4);
+    DBGBlink(RED, 4);
+    DBGBlink(GRN, 4);
 #endif
 
     /**
@@ -134,24 +140,23 @@ void loop() {
     // We just responded to a data request.
     // TODO: We aren't reading the intenal registers properly
     if (State == GET_REG) {
-        blink(RED, 2);
+        DBGBlink(RED, 2);
         i2c_payload = laser.getRegister(i2c_register);
-        State = IDLE;
+        //State = IDLE;  // Restore IDLE state when data is sent.
+        DBGDispByte(i2c_payload);
 
     // we just responded to a command, the state of our peripheral may have changed.
     } else if (State == SET_REG) {
-        blink(GRN, 2);
+        DBGBlink(GRN, 2);
         // one exception, i2c_rcvbuffer[0] == 7 and i2c_register == 0
         if ((i2c_register == 0) && (i2c_rcvbuffer[0]==7)) {
             laser.reset();
-            blink(RED,8);
+            DBGBlink(RED,8);
         }
 
         else {
             laser.setRegister(i2c_register, i2c_rcvbuffer[0]);
-#ifdef DEBUG
-            toggleValue(laser.getRegister(3));
-#endif
+            DBGDispByte(laser.getRegister(3));
         }
         laser.update();
         State = IDLE;
@@ -163,14 +168,15 @@ void loop() {
 
 }
 
+#ifdef DEBUG
 /**
- * @brief Fires the signal bipolar LED. This operation isn't strictly necessary but
- *          is useful for debugging.
+ * @brief Fires the signal bipolar LED. 
+ * This is useful for debugging in non critical timing operations
  * 
  * @param color red or green (or whatever two colors)
  * @param blinks how many blinks to do (count)
  */
-void blink(uint8_t color, uint8_t blinks) {
+void DBGBlink(uint8_t color, uint8_t blinks) {
 #ifdef DEBUG    
     while(blinks--) {
         digitalWrite(color & 0x0F, LOW);
@@ -185,15 +191,17 @@ void blink(uint8_t color, uint8_t blinks) {
 
 /**
  * @brief Toggles the LED pins so we can get a value that passed in.
+ * This is useful for debugging in non critical timing operations
  * 
  * @param val the byte value we want to read on the scope */
-void toggleValue(uint8_t val) {
+void DBGDispByte(uint8_t val) {
     digitalWrite(PB3, LOW);
     digitalWrite(PB4, LOW);
     shiftOut(PB4, PB3, MSBFIRST, val);
     digitalWrite(PB3, LOW);
     digitalWrite(PB4, LOW);
 }
+#endif
 
 /**
  * This is called for each read request we receive, never put more than one byte of 
@@ -204,6 +212,7 @@ void toggleValue(uint8_t val) {
 void requestEvent() {
     TinyWireS.send(i2c_payload);
     State = IDLE;
+    i2c_payload = 0xFF; // put dummy value in the buffer
 }
 
 /**

@@ -78,5 +78,11 @@ I have implemented varying instruction length with success but what seems to wor
  |0x6|1500|0x7|2000|
  |0x8|3000|0x9|4000|
 
+## Additional Notes
+Debugging the peripheral is not easy. You can't peek and poke values or get feedback easily.  Timing is also critical.  Flashing LEDs and sending values over available pins takes time and can interfere with $I^2C$ communications.  There are two routines which can help debug the gross aspects of state changes and transmitting data through available ports but they can, especially with read operations create some anomolous read conditions.
+`DBGBlink(c,b)` and `DBGDispByte(v)` use a bicolored LED for marking when a state has changed while the other serializes a byte to be read by a scope.
+
+The 'laser' (or LED) driver works but with the debug routines installed the 'READ' register functionality is inconsistent. Removing the debug routines allows it to work to expectation.
+
 ---
 $^\dagger$ This is a general issue when you take charge of interrupts on the ATTiny. You need to rethink how you do timing.
